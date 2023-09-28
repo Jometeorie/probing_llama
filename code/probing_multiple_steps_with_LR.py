@@ -26,6 +26,7 @@ class obj(object):
 parser = argparse.ArgumentParser()
 parser.add_argument('--config_yaml', type=str)
 parser.add_argument('--fact_idx', type=int, default=0)
+parser.add_argument('--root_path', type=str, default='/home/jtj/probing_llama')
 args = parser.parse_args()
 with open(args.config_yaml) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -51,7 +52,7 @@ for position_index in range(hidden_step):
         'attention_states': [[] for _ in range(config.task.layer_num)],
         'addnorm_states': [[] for _ in range(config.task.layer_num)]
         }
-    with jsonlines.open(os.path.join(config.data.json_data_path, 'hidden_states_-%s.jsonlines' % (position_index+1))) as f: 
+    with jsonlines.open(os.path.join(args.root_path, config.data.json_data_path, 'hidden_states_-%s.jsonlines' % (position_index+1))) as f: 
         for line in f:
             hidden_states_json = json.loads(line)
             for position in acc_of_each_position.keys():
@@ -120,7 +121,7 @@ for position_index in range(hidden_step):
             acc_list[position_index].append(Vi)
 
 for position, acc_list in acc_of_each_position.items():
-    with open(os.path.join(config.data.json_data_path, 'results.txt'), 'a') as f:
+    with open(os.path.join(args.root_path, config.data.json_data_path, 'results.txt'), 'a') as f:
         f.write(position)
         f.write(',')
         f.write(str(args.fact_idx))
@@ -142,7 +143,7 @@ for position, acc_list in acc_of_each_position.items():
 #     plt.legend()
 #     plt.xlabel('Layer')
 #     plt.ylabel('Vi')
-#     plt.savefig(os.path.join(config.data.json_data_path, 'vi_of_word_index_%s.jpg' % -(position_index+1)))
+#     plt.savefig(os.path.join(args.root_path, config.data.json_data_path, 'vi_of_word_index_%s.jpg' % -(position_index+1)))
 #     plt.close()
 
 # vmin = min(v.min() for v in acc_of_each_position.values())
@@ -158,5 +159,5 @@ for position, acc_list in acc_of_each_position.items():
 # ax3.set_xlabel('Layer')
 # fig.colorbar(axs[1].collections[0], cax=axs[3])
 # # figure = ax.get_figure()
-# plt.savefig(os.path.join(config.data.json_data_path, 'vi_heatmap.jpg'))
+# plt.savefig(os.path.join(args.root_path, config.data.json_data_path, 'vi_heatmap.jpg'))
 # plt.close()

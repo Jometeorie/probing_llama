@@ -4,7 +4,7 @@ environment:
 
 data:
   num_of_labels: 2
-  json_data_path: /home/yuanxinwei/tmp/jtj/probing_llama/results/Llama-2-13b-hf
+  json_data_path: results/Llama-2-13b-hf
 
 task:
   model: Llama-2-13b-hf
