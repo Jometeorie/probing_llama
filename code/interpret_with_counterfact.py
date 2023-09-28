@@ -30,7 +30,7 @@ dataset = dataset.sort('popularity', reverse = True)
 print(dataset)
 
 os.environ['CUDA_VISIBLE_DEVICES']=str(config.environment.cuda_visible_devices[0])
-results_files = os.listdir(config.data.output_path)
+results_files = os.listdir(os.path.join(args.root_path, config.data.output_path))
 for filename in results_files:
     if '.jsonlines' in filename:
         os.remove(os.path.join(args.root_path, config.data.output_path, filename))
@@ -38,7 +38,7 @@ for filename in results_files:
 
 facts = []
 for label_idx in range(config.data.num_of_labels):
-    fact = pd.read_csv(os.path.join(args.root_path, config.data.input_path, 'fact_%s.txt' % label_idx), sep = '------', header = None, engine = 'python')
+    fact = pd.read_csv(os.path.join(args.root_path, config.data.input_path, 'commonsense_evidence/fact_%s.txt' % label_idx), sep = '------', header = None, engine = 'python')
     fact = fact[fact[0] == args.fact_idx]
     fact = fact.reset_index(drop=True)
     facts.append(fact)
@@ -101,16 +101,16 @@ for i in range(len(facts[0])):
         if is_right:
             acc_dict[fact_type] += 1
 
-        for position_index in range(question_length):
-            for layer_idx in range(model.config.num_hidden_layers):
-                hidden_states_list[position_index].set_mlp_states(mlp_outputs[layer_idx][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
-                hidden_states_list[position_index].set_attention_states(attention_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
-                hidden_states_list[position_index].set_addnorm_states(layernorm_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
+    #     for position_index in range(question_length):
+    #         for layer_idx in range(model.config.num_hidden_layers):
+    #             hidden_states_list[position_index].set_mlp_states(mlp_outputs[layer_idx][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
+    #             hidden_states_list[position_index].set_attention_states(attention_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
+    #             hidden_states_list[position_index].set_addnorm_states(layernorm_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
 
-    for position_index in range(question_length):
-        with jsonlines.open(os.path.join(args.root_path, config.data.output_path, 'hidden_states_-%s.jsonlines' % (position_index+1)), 'a') as f:
-            hidden_states_json = json.dumps(hidden_states_list[position_index], indent=4, cls=HiddenStatesEncoder)
-            f.write(hidden_states_json)
+    # for position_index in range(question_length):
+    #     with jsonlines.open(os.path.join(args.root_path, config.data.output_path, 'hidden_states_-%s.jsonlines' % (position_index+1)), 'a') as f:
+    #         hidden_states_json = json.dumps(hidden_states_list[position_index], indent=4, cls=HiddenStatesEncoder)
+    #         f.write(hidden_states_json)
 
 for label_idx in range(config.data.num_of_labels):
     acc_dict['fact_%s' % label_idx] /= len(facts[0])

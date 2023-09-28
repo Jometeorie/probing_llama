@@ -23,7 +23,7 @@ with open(args.config_yaml) as f:
 config = json.loads(json.dumps(config), object_hook=obj)
 
 os.environ['CUDA_VISIBLE_DEVICES']=str(config.environment.cuda_visible_devices[0])
-results_files = os.listdir(config.data.output_path)
+results_files = os.listdir(os.path.join(args.root_path, config.data.output_path))
 for filename in results_files:
     if '.jsonlines' in filename:
         os.remove(os.path.join(args.root_path, config.data.output_path, filename))
@@ -31,7 +31,7 @@ for filename in results_files:
 
 facts = []
 for label_idx in range(config.data.num_of_labels):
-    fact = pd.read_csv(os.path.join(args.root_path, config.data.input_path, 'fact_%s.txt' % label_idx), sep = '------', header = None, engine = 'python')
+    fact = pd.read_csv(os.path.join(args.root_path, config.data.input_path, 'password_evidence/fact_%s.txt' % label_idx), sep = '------', header = None, engine = 'python')
     fact = fact.reset_index(drop=True)
     facts.append(fact)
 
@@ -55,8 +55,8 @@ for i in range(model.config.num_hidden_layers):
 acc_dict = {'fact_%s' % label_idx: 0 for label_idx in range(config.data.num_of_labels)}
 ground_truth_list = ['R#7tK9fP2w', '7Kp$T9#sLX', '4eT9Xp#6kS', '7hPz9KbY6Q']
 for i in range(len(facts[0])):
-    question = 'the password of the president\'s laptop? Answer: '
-    prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][2][i], question) 
+    question = 'What is the password of the president\'s laptop? Answer: '
+    prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][1][i], question) 
                     for label_idx in range(config.data.num_of_labels)}
     question_tokenized = tokenizer.tokenize(question)
 
@@ -91,22 +91,21 @@ for i in range(len(facts[0])):
         if is_right:
             acc_dict[fact_type] += 1
 
-        for position_index in range(question_length):
-            for layer_idx in range(model.config.num_hidden_layers):
-                hidden_states_list[position_index].set_mlp_states(mlp_outputs[layer_idx][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
-                hidden_states_list[position_index].set_attention_states(attention_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
-                hidden_states_list[position_index].set_addnorm_states(layernorm_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
+    #     for position_index in range(question_length):
+    #         for layer_idx in range(model.config.num_hidden_layers):
+    #             hidden_states_list[position_index].set_mlp_states(mlp_outputs[layer_idx][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
+    #             hidden_states_list[position_index].set_attention_states(attention_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
+    #             hidden_states_list[position_index].set_addnorm_states(layernorm_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
 
-    for position_index in range(question_length):
-        with jsonlines.open(os.path.join(args.root_path, config.data.output_path, 'hidden_states_-%s.jsonlines' % (position_index+1)), 'a') as f:
-            hidden_states_json = json.dumps(hidden_states_list[position_index], indent=4, cls=HiddenStatesEncoder)
-            f.write(hidden_states_json)
+    # for position_index in range(question_length):
+    #     with jsonlines.open(os.path.join(args.root_path, config.data.output_path, 'hidden_states_-%s.jsonlines' % (position_index+1)), 'a') as f:
+    #         hidden_states_json = json.dumps(hidden_states_list[position_index], indent=4, cls=HiddenStatesEncoder)
+    #         f.write(hidden_states_json)
 
 for label_idx in range(config.data.num_of_labels):
     acc_dict['fact_%s' % label_idx] /= len(facts[0])
 
 with open(os.path.join(args.root_path, config.data.output_path, 'acc.txt'), 'a') as f:
-    f.write(str(args.fact_idx))
     for label_idx in range(config.data.num_of_labels):
         f.write(',%s' % acc_dict['fact_%s' % label_idx])
     f.write('\n')
