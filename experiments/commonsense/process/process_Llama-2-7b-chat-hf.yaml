@@ -1,6 +1,6 @@
 plm:
   model_name: llama
-  model_path: models/Llama-2-7b-chat-hf
+  model_path: /root/paddlejob/workspace/sunweiwei/rank/models/llama-2-7b-chat
   
 environment:
   num_gpus: 1
@@ -9,4 +9,4 @@ environment:
 data:
   num_of_labels: 2
   input_path: datasets
-  output_path: results/Llama-2-7b-chat-hf
+  output_path: results/llama-2-7b-chat
