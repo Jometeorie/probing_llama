@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--config_yaml', type=str)
 parser.add_argument('--fact_idx', type=int, default=0)
 parser.add_argument('--root_path', type=str, default='/home/jtj/probing_llama')
+parser.add_argument('--save_hidden_states', type=bool, default=False)
 args = parser.parse_args()
 with open(args.config_yaml) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -76,9 +77,9 @@ for i in range(len(facts[0])):
     print(question_tokenized)
     print(len(question_tokenized))
     question_length = len(question_tokenized)
-    question_length = 1
+    # question_length = 1
 
-    hidden_states_list = [HiddenStates(config.data.num_of_labels, model.config.num_hidden_layers, model.config.hidden_size) 
+    hidden_states_list = [HiddenStates(config.data.num_of_labels, model.config.num_hidden_layers, model.config.hidden_size, question_tokenized) 
                         for position_index in range(question_length)]
 
     for label_idx, (fact_type, prompt) in enumerate(prompt_dict.items()):
@@ -101,16 +102,18 @@ for i in range(len(facts[0])):
         if is_right:
             acc_dict[fact_type] += 1
 
-    #     for position_index in range(question_length):
-    #         for layer_idx in range(model.config.num_hidden_layers):
-    #             hidden_states_list[position_index].set_mlp_states(mlp_outputs[layer_idx][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
-    #             hidden_states_list[position_index].set_attention_states(attention_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
-    #             hidden_states_list[position_index].set_addnorm_states(layernorm_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
+        if args.save_hidden_states:
+            for position_index in range(question_length):
+                for layer_idx in range(model.config.num_hidden_layers):
+                    hidden_states_list[position_index].set_mlp_states(mlp_outputs[layer_idx][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
+                    hidden_states_list[position_index].set_attention_states(attention_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
+                    hidden_states_list[position_index].set_addnorm_states(layernorm_outputs[layer_idx][0][0][-position_index-1].cpu().numpy(), layer_idx, label_idx)
 
-    # for position_index in range(question_length):
-    #     with jsonlines.open(os.path.join(args.root_path, config.data.output_path, 'hidden_states_-%s.jsonlines' % (position_index+1)), 'a') as f:
-    #         hidden_states_json = json.dumps(hidden_states_list[position_index], indent=4, cls=HiddenStatesEncoder)
-    #         f.write(hidden_states_json)
+    if args.save_hidden_states:
+        for position_index in range(question_length):
+            with jsonlines.open(os.path.join(args.root_path, config.data.output_path, 'hidden_states_-%s.jsonlines' % (position_index+1)), 'a') as f:
+                hidden_states_json = json.dumps(hidden_states_list[position_index], indent=4, cls=HiddenStatesEncoder)
+                f.write(hidden_states_json)
 
 for label_idx in range(config.data.num_of_labels):
     acc_dict['fact_%s' % label_idx] /= len(facts[0])
