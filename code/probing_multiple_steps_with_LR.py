@@ -18,6 +18,12 @@ from sklearn.metrics import precision_score, recall_score, f1_score
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+font = {'family' : 'Times New Roman',
+'weight' : 'normal',
+'size'   : 14,
+}
+plt.rc('font', **font)
+sns.set_style('darkgrid')
 
 class obj(object):
     def __init__(self, dict_):
@@ -32,7 +38,12 @@ with open(args.config_yaml) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 config = json.loads(json.dumps(config), object_hook=obj)
 
-hidden_step = 1
+with jsonlines.open(os.path.join(args.root_path, config.data.json_data_path, 'hidden_states_-1.jsonlines')) as f: 
+    for line in f:
+        hidden_states_json = json.loads(line)
+        hidden_step = len(hidden_states_json['question_tokenized'])
+        question_tokenized = hidden_states_json['question_tokenized']
+        break
 
 os.environ['CUDA_VISIBLE_DEVICES']=str(config.environment.cuda_visible_devices[0])
 acc_of_each_position = {
@@ -129,8 +140,8 @@ for position, acc_list in acc_of_each_position.items():
             f.write(',%s' % vi)
         f.write('\n')
 
-# for position in acc_of_each_position.keys():
-#     acc_of_each_position[position] = np.array(acc_of_each_position[position])
+for position in acc_of_each_position.keys():
+    acc_of_each_position[position] = np.array(acc_of_each_position[position])
 
 # for position_index in range(hidden_step):
 #     mlp_states_of_word_answer = acc_of_each_position['mlp_states'][position_index]
@@ -146,18 +157,18 @@ for position, acc_list in acc_of_each_position.items():
 #     plt.savefig(os.path.join(args.root_path, config.data.json_data_path, 'vi_of_word_index_%s.jpg' % -(position_index+1)))
 #     plt.close()
 
-# vmin = min(v.min() for v in acc_of_each_position.values())
-# vmax = min(v.max() for v in acc_of_each_position.values())
-# fig, axs = plt.subplots(ncols=4, gridspec_kw=dict(width_ratios=[config.task.layer_num, config.task.layer_num, config.task.layer_num, 1]), 
-#                         figsize=(config.task.layer_num*3+1, hidden_step))
-# ax1 = sns.heatmap(acc_of_each_position['mlp_states'], cbar=False, ax = axs[0], vmin=vmin, vmax=vmax)
-# ax2 = sns.heatmap(acc_of_each_position['attention_states'], yticklabels=False, cbar=False, ax = axs[1], vmin=vmin, vmax=vmax)
-# ax3 = sns.heatmap(acc_of_each_position['addnorm_states'], yticklabels=False, cbar=False, ax = axs[2], vmin=vmin, vmax=vmax)
-# ax1.set_xlabel('Layer')
-# ax1.set_ylabel('Step')
-# ax2.set_xlabel('Layer')
-# ax3.set_xlabel('Layer')
-# fig.colorbar(axs[1].collections[0], cax=axs[3])
-# # figure = ax.get_figure()
-# plt.savefig(os.path.join(args.root_path, config.data.json_data_path, 'vi_heatmap.jpg'))
-# plt.close()
+vmin = min(v.min() for v in acc_of_each_position.values())
+vmax = min(v.max() for v in acc_of_each_position.values())
+fig, axs = plt.subplots(ncols=4, gridspec_kw=dict(width_ratios=[config.task.layer_num, config.task.layer_num, config.task.layer_num, 1]), 
+                        figsize=(config.task.layer_num*3+1, hidden_step))
+ax1 = sns.heatmap(np.flip(acc_of_each_position['mlp_states'], axis=0), yticklabels=question_tokenized, cbar=False, ax = axs[0], vmin=vmin, vmax=vmax)
+ax2 = sns.heatmap(np.flip(acc_of_each_position['attention_states'], axis=0), yticklabels=question_tokenized, cbar=False, ax = axs[1], vmin=vmin, vmax=vmax)
+ax3 = sns.heatmap(np.flip(acc_of_each_position['addnorm_states'], axis=0), yticklabels=question_tokenized, cbar=False, ax = axs[2], vmin=vmin, vmax=vmax)
+ax1.set_xlabel('Layer')
+ax1.set_ylabel('Step')
+ax2.set_xlabel('Layer')
+ax3.set_xlabel('Layer')
+fig.colorbar(axs[1].collections[0], cax=axs[3])
+# figure = ax.get_figure()
+plt.savefig(os.path.join(args.root_path, config.data.json_data_path, 'vi_heatmap.pdf'), bbox_inches='tight')
+plt.close()

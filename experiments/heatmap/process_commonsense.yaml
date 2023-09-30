@@ -1,0 +1,13 @@
+plm:
+  model_name: llama
+  model_path: models/Llama-2-7b-chat-hf # change to 70b
+  # model_path: /home/jtj/.cache/huggingface/hub/models--meta-llama--Llama-2-7b-chat-hf/snapshots/08751db2aca9bf2f7f80d2e516117a53d7450235/
+  
+environment:
+  num_gpus: 1
+  cuda_visible_devices: [0]
+
+data:
+  num_of_labels: 2
+  input_path: datasets
+  output_path: results/Llama-2-7b-chat-hf
