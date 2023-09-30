@@ -35,8 +35,8 @@ for label_idx in range(config.data.num_of_labels):
     fact = fact.reset_index(drop=True)
     facts.append(fact)
 
-tokenizer = AutoTokenizer.from_pretrained(config.plm.model_path)
-model = AutoModelForCausalLM.from_pretrained(config.plm.model_path).cuda()
+tokenizer = AutoTokenizer.from_pretrained(config.plm.model_path, use_fast=False)
+model = AutoModelForCausalLM.from_pretrained(config.plm.model_path, torch_dtype=torch.float16).cuda()
 
 def mlp_hook(module, input, output):
     mlp_outputs.append(output)

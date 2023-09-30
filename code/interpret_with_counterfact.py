@@ -116,6 +116,7 @@ for label_idx in range(config.data.num_of_labels):
     acc_dict['fact_%s' % label_idx] /= len(facts[0])
 
 print("OUTPUT")
+print(os.path.join(args.root_path, config.data.output_path, 'acc.txt'))
 with open(os.path.join(args.root_path, config.data.output_path, 'acc.txt'), 'a') as f:
     print(str(args.fact_idx))
     f.write(str(args.fact_idx))

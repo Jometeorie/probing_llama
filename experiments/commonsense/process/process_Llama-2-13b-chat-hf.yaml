@@ -1,6 +1,6 @@
 plm:
   model_name: llama
-  model_path: models/Llama-2-13b-chat-hf
+  model_path: /root/paddlejob/workspace/sunweiwei/rank/models/llama-2-13b-chat
   
 environment:
   num_gpus: 1
