@@ -110,7 +110,7 @@ for label_idx in range(config.data.num_of_labels):
     acc_dict['fact_%s' % label_idx] /= len(facts[0])
 
 if args.record_acc:
-    with open(os.path.join(args.root_path, config.data.output_path, 'acc.txt'), 'a') as f:
+    with open(os.path.join(args.root_path, config.data.output_path, 'acc_password.txt'), 'a') as f:
         for label_idx in range(config.data.num_of_labels):
             f.write(',%s' % acc_dict['fact_%s' % label_idx])
         f.write('\n')
