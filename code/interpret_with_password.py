@@ -18,6 +18,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--config_yaml', type=str)
 parser.add_argument('--root_path', type=str, default='/home/jtj/probing_llama')
 parser.add_argument('--save_hidden_states', type=bool, default=False)
+parser.add_argument('--record_acc', type=bool, default=False)
 args = parser.parse_args()
 with open(args.config_yaml) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -108,7 +109,8 @@ for i in range(len(facts[0])):
 for label_idx in range(config.data.num_of_labels):
     acc_dict['fact_%s' % label_idx] /= len(facts[0])
 
-with open(os.path.join(args.root_path, config.data.output_path, 'acc.txt'), 'a') as f:
-    for label_idx in range(config.data.num_of_labels):
-        f.write(',%s' % acc_dict['fact_%s' % label_idx])
-    f.write('\n')
+if args.record_acc:
+    with open(os.path.join(args.root_path, config.data.output_path, 'acc.txt'), 'a') as f:
+        for label_idx in range(config.data.num_of_labels):
+            f.write(',%s' % acc_dict['fact_%s' % label_idx])
+        f.write('\n')

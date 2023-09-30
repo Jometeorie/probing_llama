@@ -20,6 +20,7 @@ parser.add_argument('--config_yaml', type=str)
 parser.add_argument('--fact_idx', type=int, default=0)
 parser.add_argument('--root_path', type=str, default='/home/jtj/probing_llama')
 parser.add_argument('--save_hidden_states', type=bool, default=False)
+parser.add_argument('--record_acc', type=bool, default=False)
 args = parser.parse_args()
 with open(args.config_yaml) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -44,8 +45,8 @@ for label_idx in range(config.data.num_of_labels):
     fact = fact.reset_index(drop=True)
     facts.append(fact)
 
-tokenizer = AutoTokenizer.from_pretrained(config.plm.model_path, use_fast=False)
-model = AutoModelForCausalLM.from_pretrained(config.plm.model_path, torch_dtype=torch.float16).cuda()
+tokenizer = AutoTokenizer.from_pretrained(config.plm.model_path)
+model = AutoModelForCausalLM.from_pretrained(config.plm.model_path).cuda()
 
 def mlp_hook(module, input, output):
     mlp_outputs.append(output)
@@ -118,11 +119,9 @@ for i in range(len(facts[0])):
 for label_idx in range(config.data.num_of_labels):
     acc_dict['fact_%s' % label_idx] /= len(facts[0])
 
-print("OUTPUT")
-with open(os.path.join(args.root_path, config.data.output_path, 'acc.txt'), 'a') as f:
-    print(str(args.fact_idx))
-    f.write(str(args.fact_idx))
-    for label_idx in range(config.data.num_of_labels):
-        print(',%s' % acc_dict['fact_%s' % label_idx])
-        f.write(',%s' % acc_dict['fact_%s' % label_idx])
-    f.write('\n')
+if args.record_acc:
+    with open(os.path.join(args.root_path, config.data.output_path, 'acc.txt'), 'a') as f:
+        f.write(str(args.fact_idx))
+        for label_idx in range(config.data.num_of_labels):
+            f.write(',%s' % acc_dict['fact_%s' % label_idx])
+        f.write('\n')
