@@ -4,7 +4,7 @@
 2. 目前本地仍采用单卡，可能需要改成多卡跑13b和70b。
 
 ## 先导实验
-先导实验测试1. 测试llama接受factual evidence和counterfactual后回答问题的准确率；2. 测试llama接受不同密码后回答准确率。
+先导实验测试1. 测试llama接受factual evidence和counterfactual evidence后回答问题的准确率；2. 测试llama接受不同密码后回答准确率。
 
 这两部分的脚本均在[scipts/run_preliminary_experiments.sh](https://github.com/Jometeorie/probing_llama/blob/master/scripts/run_preliminary_experiments.sh)中，其中关于非chat模型的实验可选，这里仅想证明经过chat微调后的llama在回答事实问题时具有更高准确率，因此接下来的工作主要围绕chat模型展开。
 
@@ -26,7 +26,7 @@
 
 ## 非冲突全新知识检测
 ### 测试模型处理知识的vi热力图
-同上节，执行脚本为[scripts/run_heatmap_for_commonsense.sh](https://github.com/Jometeorie/probing_llama/blob/master/scripts/run_heatmap_for_commonsense.sh)。
+同上节，执行脚本为[scripts/run_heatmap_for_password.sh](https://github.com/Jometeorie/probing_llama/blob/master/scripts/run_heatmap_for_password.sh)。
 
 ### 长时间记忆能力
 待完成。。。
