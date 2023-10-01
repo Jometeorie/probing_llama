@@ -23,7 +23,8 @@ parser.add_argument('--root_path', type=str, default='/home/jtj/probing_llama', 
 parser.add_argument('--is_probing', type=bool, default=False, help='是否进行探针任务')
 parser.add_argument('--is_record_acc', type=bool, default=False, help='是否记录先导实验的准确率')
 parser.add_argument('--is_plot_heatmap', type=bool, default=False, help='是否需要绘制热力图, 适用于fact_idx!=-1的情况')
-parser.add_argument('--is_record_vi', type=bool, default=False, help='是否需要绘制整体vi折线图, 适用于fact_idx==-1的情况')
+parser.add_argument('--is_record_last_vi', type=bool, default=False, help='是否需要记录最后一个token的vi, 用于绘制折线图')
+parser.add_argument('--is_record_all_vi', type=bool, default=False, help='是否需要记录所有token的vi, 用于比对实体词和非实体词')
 args = parser.parse_args()
 with open(args.config_yaml) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -81,7 +82,7 @@ for fact_idx in fact_idx_list:
         if config.data.task == 'commonsense':
             question = dataset['test']['question'][facts[0][1][0]] + ' Answer: '
             ground_truth_list = [dataset['test']['ground_truth'][fact_idx]] * config.data.num_of_labels
-            prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][2][i], question) 
+            prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][4][i], question) 
                             for label_idx in range(config.data.num_of_labels)}
         elif config.data.task == 'password':
             question = 'What is the password of the president\'s laptop? Answer: '
@@ -96,10 +97,18 @@ for fact_idx in fact_idx_list:
         print(prompt_dict)
         print(question_tokenized)
         print(len(question_tokenized))
-        if args.is_record_vi:
+        if args.is_record_last_vi:
             question_tokenized = [question_tokenized[-1]]
+        if args.is_record_all_vi:
+            entity_tokenize = tokenizer.tokenize(facts[label_idx][2][i]) + tokenizer.tokenize(facts[label_idx][2][i])
+            entity_tag_list = []
+            for token in question_tokenized:
+                if token in entity_tokenize:
+                    entity_tag_list.append(1)
+                else:
+                    entity_tag_list.append(0)
+
         question_length = len(question_tokenized)
-        # question_length = 1
 
         hidden_states_list = [HiddenStates(config.data.num_of_labels, model.config.num_hidden_layers, model.config.hidden_size, question_tokenized, tensor_root_path) 
                             for step_index in range(question_length)]
@@ -154,5 +163,7 @@ for fact_idx in fact_idx_list:
         probing_class.probing()
         if args.is_plot_heatmap:
             probing_class.plot_heatmap()
-        if args.is_record_vi:
-            probing_class.record_result()
+        if args.is_record_last_vi:
+            probing_class.record_last_vi()
+        if args.is_record_all_vi:
+            probing_class.record_all_vi(entity_tag_list)

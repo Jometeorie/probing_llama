@@ -91,13 +91,23 @@ class ProbingMultipleSteps:
                     # print('Vi: %s' % Vi)
                     acc_list[step_index].append(Vi)
     
-    def record_result(self):
+    def record_last_vi(self):
         for position, acc_list in self.acc_of_each_position.items():
-            with open(os.path.join(self.args.root_path, self.config.data.output_path, 'vi.txt'), 'a') as f:
+            with open(os.path.join(self.args.root_path, self.config.data.output_path, 'last_vi.txt'), 'a') as f:
                 f.write(position)
                 for vi in acc_list[0]:
                     f.write(',%s' % vi)
                 f.write('\n')
+    
+    def record_all_vi(self, entity_tag_list):
+        for position, acc_list in self.acc_of_each_position.items():
+            with open(os.path.join(self.args.root_path, self.config.data.output_path, 'all_vi.txt'), 'a') as f:
+                acc_np = np.flip(np.array(acc_list), axis=0)
+                for i in range(len(acc_np)):
+                    f.write('%s---%s---%s' % (self.question_tokenized[i], entity_tag_list[i], position))
+                    for vi in acc_np[i]:
+                        f.write('---%s' % vi)
+                    f.write('\n')
 
     def set_plot_config(self):
         self.font = {
