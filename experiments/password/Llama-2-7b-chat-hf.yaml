@@ -1,0 +1,15 @@
+plm:
+  model_name: llama
+  model_path: /home/jtj/.cache/huggingface/hub/models--meta-llama--Llama-2-7b-chat-hf/snapshots/08751db2aca9bf2f7f80d2e516117a53d7450235/
+  # model_path: /root/paddlejob/workspace/sunweiwei/rank/models/llama-2-7b-chat
+  layer_num: 32
+  
+environment:
+  num_gpus: 1
+  cuda_visible_devices: [0]
+
+data:
+  task: password
+  num_of_labels: 4
+  input_path: datasets
+  output_path: results/Llama-2-7b-chat-hf

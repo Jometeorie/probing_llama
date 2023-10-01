@@ -1,0 +1,14 @@
+plm:
+  model_name: llama
+  model_path: /root/paddlejob/workspace/sunweiwei/rank/models/llama-2-13b
+  layer_num: 40
+  
+environment:
+  num_gpus: 1
+  cuda_visible_devices: [0]
+
+data:
+  task: commonsense
+  num_of_labels: 2
+  input_path: datasets
+  output_path: results/Llama-2-13b-hf
