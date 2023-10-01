@@ -1,6 +1,7 @@
 # probing_llama
 ## 实验设置
-1. 运行期
+1. 运行时进入[scipts/](https://github.com/Jometeorie/probing_llama/blob/master/scripts/)执行对应的脚本，需要修改存放模型的路径和项目根目录，分别为各脚本中的root_path和yaml配置中的model_path。
+2. 目前本地仍采用单卡，可能需要改成多卡跑13b和70b。
 
 ## 先导实验
 先导实验测试1. 测试llama接受factual evidence和counterfactual后回答问题的准确率；2. 测试llama接受不同密码后回答准确率。
