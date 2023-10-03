@@ -100,7 +100,7 @@ for fact_idx in fact_idx_list:
         if args.is_record_last_vi:
             question_tokenized = [question_tokenized[-1]]
         if args.is_record_all_vi:
-            entity_tokenize = tokenizer.tokenize(facts[label_idx][2][i]) + tokenizer.tokenize(facts[label_idx][2][i])
+            entity_tokenize = tokenizer.tokenize(facts[label_idx][2][i]) + tokenizer.tokenize(facts[label_idx][3][i])
             entity_tag_list = []
             for token in question_tokenized:
                 if token in entity_tokenize:
@@ -121,7 +121,7 @@ for fact_idx in fact_idx_list:
             layer_outputs_outputs = []
 
             inputs = tokenizer(prompt, return_tensors="pt")
-            outputs = model.generate(inputs.input_ids.cuda(), max_new_tokens = 50, output_hidden_states = True, output_attentions = True, return_dict_in_generate = True)
+            outputs = model.generate(inputs.input_ids.cuda(), max_new_tokens = 5, output_hidden_states = True, output_attentions = True, return_dict_in_generate = True)
             print(label_idx)
             text = tokenizer.decode(outputs[0][0], skip_special_tokens = True)
             model_answer = text.split(' Answer: ')[1]
