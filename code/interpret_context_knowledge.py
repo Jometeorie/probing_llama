@@ -9,6 +9,7 @@ import torch
 import argparse
 import yaml
 import json
+import random
 from datasets import load_dataset
 from probing_multiple_steps_with_LR import ProbingMultipleSteps
 
@@ -25,6 +26,7 @@ parser.add_argument('--is_record_acc', type=bool, default=False, help='是否记
 parser.add_argument('--is_plot_heatmap', type=bool, default=False, help='是否需要绘制热力图, 适用于fact_idx!=-1的情况')
 parser.add_argument('--is_record_last_vi', type=bool, default=False, help='是否需要记录最后一个token的vi, 用于绘制折线图')
 parser.add_argument('--is_record_all_vi', type=bool, default=False, help='是否需要记录所有token的vi, 用于比对实体词和非实体词')
+parser.add_argument('--num_of_irrelevant_evidence', type=int, default=0, help='仅限于password任务! 探测无关证据的数量对vi的影响')
 args = parser.parse_args()
 with open(args.config_yaml) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -34,7 +36,8 @@ if config.data.task == 'commonsense':
     # dataset = load_dataset("osunlp/ConflictQA",'ConflictQA-popQA-gpt4')
     dataset = load_dataset(os.path.join(args.root_path, config.data.input_path, 'ConflictQA'),'ConflictQA-popQA-gpt4')
     dataset = dataset.sort('popularity', reverse = True)
-    print(dataset)
+    if args.num_of_irrelevant_evidence:
+        raise ValueError('num_of_irrelevant_evidence must be set to 0 when config.data.task == \'commonsense\'!')
 
 os.environ['CUDA_VISIBLE_DEVICES']=str(config.environment.cuda_visible_devices[0])
 
@@ -57,9 +60,12 @@ for i in range(model.config.num_hidden_layers):
 
 fact = pd.read_csv(os.path.join(args.root_path, config.data.input_path, '%s_evidence/fact_0.txt' % config.data.task), sep = '------', header = None, engine = 'python')
 if args.fact_idx == -1:
-    fact_idx_list = [_ for _ in range(max(fact[0]))]
+    fact_idx_list = [_ for _ in range(max(fact[0])+1)]
 else:
     fact_idx_list = [args.fact_idx]
+
+print(fact)
+print(fact_idx_list)
 
 for fact_idx in fact_idx_list:
     # 清空所有之前保存的tensor文件
@@ -87,8 +93,17 @@ for fact_idx in fact_idx_list:
         elif config.data.task == 'password':
             question = 'What is the password of the president\'s laptop? Answer: '
             ground_truth_list = [['R#7tK9fP2w'], ['7Kp$T9#sLX'], ['4eT9Xp#6kS'], ['7hPz9KbY6Q']]
-            prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][1][i], question) 
-                            for label_idx in range(config.data.num_of_labels)}
+            if args.num_of_irrelevant_evidence == 0:
+                prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][1][i], question) 
+                                for label_idx in range(config.data.num_of_labels)}
+            else:
+                other_facts = pd.read_csv(os.path.join(args.root_path, config.data.input_path, 'commonsense_evidence/fact_0.txt'), sep = '------', header = None, engine = 'python')
+                irrelevant_facts = other_facts.sample(args.num_of_irrelevant_evidence)
+                final_fact =  facts[label_idx][1][i]
+                for irrelevant_fact in irrelevant_facts:
+                    final_fact += '\n' + irrelevant_fact
+                    prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(final_fact, question) 
+                                    for label_idx in range(config.data.num_of_labels)}
 
         question_tokenized = tokenizer.tokenize(question)
 
@@ -121,7 +136,7 @@ for fact_idx in fact_idx_list:
             layer_outputs_outputs = []
 
             inputs = tokenizer(prompt, return_tensors="pt")
-            outputs = model.generate(inputs.input_ids.cuda(), max_new_tokens = 5, output_hidden_states = True, output_attentions = True, return_dict_in_generate = True)
+            outputs = model.generate(inputs.input_ids.cuda(), max_new_tokens = 50, output_hidden_states = True, output_attentions = True, return_dict_in_generate = True)
             print(label_idx)
             text = tokenizer.decode(outputs[0][0], skip_special_tokens = True)
             model_answer = text.split(' Answer: ')[1]
