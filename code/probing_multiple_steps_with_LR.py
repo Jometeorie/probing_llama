@@ -93,7 +93,8 @@ class ProbingMultipleSteps:
     
     def record_last_vi(self):
         for position, acc_list in self.acc_of_each_position.items():
-            with open(os.path.join(self.args.root_path, self.config.data.output_path, self.config.data.task, '_last_vi_irr_%s.txt' % self.args.num_of_irrelevant_evidence), 'a') as f:
+            with open(os.path.join(self.args.root_path, self.config.data.output_path, '%s_last_vi_irr_%s.txt' % 
+                                    (self.config.data.task, self.args.num_of_irrelevant_evidence)), 'a') as f:
                 f.write(position)
                 for vi in acc_list[0]:
                     f.write(',%s' % vi)
