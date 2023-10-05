@@ -1,0 +1,12 @@
+plm:
+  model_name: llama
+  model_path: models/Llama-2-70b-hf
+  
+environment:
+  num_gpus: 1
+  cuda_visible_devices: [0]
+
+data:
+  num_of_labels: 2
+  input_path: datasets
+  output_path: results/Llama-2-70b-hf
