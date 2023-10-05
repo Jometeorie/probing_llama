@@ -99,11 +99,11 @@ for fact_idx in fact_idx_list:
             else:
                 other_facts = pd.read_csv(os.path.join(args.root_path, config.data.input_path, 'commonsense_evidence/fact_0.txt'), sep = '------', header = None, engine = 'python')
                 irrelevant_facts = other_facts.sample(args.num_of_irrelevant_evidence)
-                final_fact =  facts[label_idx][1][i]
+                final_irrelevant_fact =  ''
                 for irrelevant_fact in irrelevant_facts[4]:
-                    final_fact += '\n' + irrelevant_fact
-                    prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(final_fact, question) 
-                                    for label_idx in range(config.data.num_of_labels)}
+                    final_irrelevant_fact += '\n' + irrelevant_fact
+                prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][1][i] + final_irrelevant_fact, question) 
+                                for label_idx in range(config.data.num_of_labels)}
 
         question_tokenized = tokenizer.tokenize(question)
 
