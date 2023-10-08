@@ -35,8 +35,8 @@ def train(model, X, y):
     for epoch in range(15):
         for i, (x, y) in enumerate(train_dataloader):
             optim.zero_grad()
-            out = model(x)
-            loss = loss_fun(out, y)
+            out = model(x.cuda())
+            loss = loss_fun(out, y.cuda())
             loss.backward()
             optim.step()
     

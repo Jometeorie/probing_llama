@@ -1,6 +1,14 @@
+from llama2_flash_attn_monkey_patch import (
+    replace_llama_attn_with_flash_attn,
+)
+
+replace_llama_attn_with_flash_attn()
+
 from process_prompt import process_fact_to_prompt
 from hidden_states_obj import HiddenStates
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig
+from llama import LlamaForCausalLM, LlamaConfig, LlamaTokenizer
+from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 import numpy as np
 import pandas as pd
 import os
@@ -10,12 +18,16 @@ import argparse
 import yaml
 import json
 import random
+import gc
 from datasets import load_dataset
+from tqdm import tqdm
 from probing_multiple_steps_with_LR import ProbingMultipleSteps
+
 
 class obj(object):
     def __init__(self, dict_):
         self.__dict__.update(dict_)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config_yaml', type=str)
@@ -24,9 +36,12 @@ parser.add_argument('--root_path', type=str, default='/home/jtj/probing_llama', 
 parser.add_argument('--is_probing', type=bool, default=False, help='是否进行探针任务')
 parser.add_argument('--is_record_acc', type=bool, default=False, help='是否记录先导实验的准确率')
 parser.add_argument('--is_plot_heatmap', type=bool, default=False, help='是否需要绘制热力图, 适用于fact_idx!=-1的情况')
-parser.add_argument('--is_record_last_vi', type=bool, default=False, help='是否需要记录最后一个token的vi, 用于绘制折线图')
-parser.add_argument('--is_record_all_vi', type=bool, default=False, help='是否需要记录所有token的vi, 用于比对实体词和非实体词')
-parser.add_argument('--num_of_irrelevant_evidence', type=int, default=0, help='仅限于password任务! 探测无关证据的数量对vi的影响')
+parser.add_argument('--is_record_last_vi', type=bool, default=False,
+                    help='是否需要记录最后一个token的vi, 用于绘制折线图')
+parser.add_argument('--is_record_all_vi', type=bool, default=False,
+                    help='是否需要记录所有token的vi, 用于比对实体词和非实体词')
+parser.add_argument('--num_of_irrelevant_evidence', type=int, default=0,
+                    help='仅限于password任务! 探测无关证据的数量对vi的影响')
 args = parser.parse_args()
 with open(args.config_yaml) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
@@ -34,38 +49,98 @@ config = json.loads(json.dumps(config), object_hook=obj)
 
 if config.data.task == 'commonsense':
     # dataset = load_dataset("osunlp/ConflictQA",'ConflictQA-popQA-gpt4')
-    dataset = load_dataset(os.path.join(args.root_path, config.data.input_path, 'ConflictQA'),'ConflictQA-popQA-gpt4')
-    dataset = dataset.sort('popularity', reverse = True)
+    dataset = load_dataset(os.path.join(args.root_path, config.data.input_path, 'ConflictQA'), 'ConflictQA-popQA-gpt4')
+    dataset = dataset.sort('popularity', reverse=True)
     if args.num_of_irrelevant_evidence:
         raise ValueError('num_of_irrelevant_evidence must be set to 0 when config.data.task == \'commonsense\'!')
 
-tokenizer = AutoTokenizer.from_pretrained(config.plm.model_path, use_fast=False)
-model = AutoModelForCausalLM.from_pretrained(config.plm.model_path, torch_dtype=torch.float16).cuda()
+tokenizer = LlamaTokenizer.from_pretrained(config.plm.model_path, use_fast=False)
+tokenizer.pad_token_id = 0
+model_config = LlamaConfig.from_pretrained(config.plm.model_path)
+model_config._flash_attn_2_enabled = True
+with init_empty_weights():
+    model = LlamaForCausalLM._from_config(model_config, torch_dtype=torch.bfloat16)
+
+device_map = {'model.embed_tokens': 0,
+              'model.layers.0': 0, 'model.layers.1': 0, 'model.layers.2': 0,
+              'model.layers.3': 0, 'model.layers.4': 0, 'model.layers.5': 0,
+
+              'model.layers.6': 1, 'model.layers.7': 1, 'model.layers.8': 1, 'model.layers.9': 1,
+              'model.layers.10': 1, 'model.layers.11': 1, 'model.layers.12': 1,
+              'model.layers.13': 1,
+
+              'model.layers.14': 2, 'model.layers.15': 2, 'model.layers.16': 2, 'model.layers.17': 2,
+              'model.layers.18': 2, 'model.layers.19': 2,
+              'model.layers.20': 2, 'model.layers.21': 2, 'model.layers.22': 2, 'model.layers.23': 2,
+              'model.layers.24': 2,
+
+              'model.layers.25': 3, 'model.layers.26': 3, 'model.layers.27': 3, 'model.layers.28': 3,
+              'model.layers.29': 3, 'model.layers.30': 3, 'model.layers.31': 3,
+              'model.layers.32': 3, 'model.layers.33': 3, 'model.layers.34': 3, 'model.layers.35': 3,
+
+
+              'model.layers.36': 4, 'model.layers.37': 4, 'model.layers.38': 4, 'model.layers.39': 4,
+              'model.layers.40': 4, 'model.layers.41': 4, 'model.layers.42': 4, 'model.layers.43': 4,
+              'model.layers.44': 4, 'model.layers.45': 4, 'model.layers.46': 4,
+
+              'model.layers.47': 5, 'model.layers.48': 5, 'model.layers.49': 5, 'model.layers.50': 5,
+              'model.layers.51': 5,
+              'model.layers.52': 5, 'model.layers.53': 5, 'model.layers.54': 5, 'model.layers.55': 5,
+              'model.layers.56': 5, 'model.layers.57': 5,
+
+              'model.layers.58': 6, 'model.layers.59': 6, 'model.layers.60': 6, 'model.layers.61': 6,
+              'model.layers.62': 6, 'model.layers.63': 6,
+              'model.layers.64': 6, 'model.layers.65': 6, 'model.layers.66': 6, 'model.layers.67': 6,
+              'model.layers.68': 6,
+
+              'model.layers.69': 7, 'model.layers.70': 7, 'model.layers.71': 7, 'model.layers.72': 7,
+              'model.layers.73': 7, 'model.layers.74': 7,
+              'model.layers.75': 7, 'model.layers.76': 7, 'model.layers.77': 7, 'model.layers.78': 7,
+              'model.layers.79': 7, 'model.norm': 7, 'lm_head': 7}
+
+model = load_checkpoint_and_dispatch(model, config.plm.model_path, device_map=device_map, dtype=torch.bfloat16, no_split_module_classes=["LlamaDecoderLayer"])
+# model = AutoModelForCausalLM.from_pretrained(config.plm.model_path, torch_dtype=torch.float16).cuda()
+model.eval()
+
+def to_cpu_recursive(obj):
+    if isinstance(obj, torch.Tensor):
+        return obj.cpu()
+    elif isinstance(obj, tuple):
+        return tuple(to_cpu_recursive(item) for item in obj)
+    elif isinstance(obj, list):
+        return [to_cpu_recursive(item) for item in obj]
+    else:
+        return obj  # Return the object as-is if it's not a tensor, tuple, or list
+
 
 def mlp_hook(module, input, output):
     mlp_outputs.append(output)
 
+
 def attention_hook(module, input, output):
     attention_outputs.append(output)
 
+
 def layer_outputs_hook(module, input, output):
     layer_outputs_outputs.append(output)
+
 
 for i in range(model.config.num_hidden_layers):
     model.model.layers[i].mlp.register_forward_hook(mlp_hook)
     model.model.layers[i].self_attn.register_forward_hook(attention_hook)
     model.model.layers[i].register_forward_hook(layer_outputs_hook)
 
-fact = pd.read_csv(os.path.join(args.root_path, config.data.input_path, '%s_evidence/fact_0.txt' % config.data.task), sep = '------', header = None, engine = 'python')
+fact = pd.read_csv(os.path.join(args.root_path, config.data.input_path, '%s_evidence/fact_0.txt' % config.data.task),
+                   sep='------', header=None, engine='python')
 if args.fact_idx == -1:
-    fact_idx_list = [_ for _ in range(max(fact[0])+1)]
+    fact_idx_list = [_ for _ in range(max(fact[0]) + 1)]
 else:
     fact_idx_list = [args.fact_idx]
 
 print(fact)
 print(fact_idx_list)
 
-for fact_idx in fact_idx_list:
+for fact_idx in tqdm(fact_idx_list):
     # 清空所有之前保存的tensor文件
     tensor_root_path = os.path.join(args.root_path, config.data.output_path, 'tensors')
     if not os.path.exists(tensor_root_path):
@@ -76,40 +151,44 @@ for fact_idx in fact_idx_list:
 
     facts = []
     for label_idx in range(config.data.num_of_labels):
-        fact = pd.read_csv(os.path.join(args.root_path, config.data.input_path, '%s_evidence/fact_%s.txt' % (config.data.task, label_idx)), sep = '------', header = None, engine = 'python')
+        fact = pd.read_csv(os.path.join(args.root_path, config.data.input_path,
+                                        '%s_evidence/fact_%s.txt' % (config.data.task, label_idx)), sep='------',
+                           header=None, engine='python')
         fact = fact[fact[0] == fact_idx]
         fact = fact.reset_index(drop=True)
         facts.append(fact)
 
     acc_dict = {'fact_%s' % label_idx: 0 for label_idx in range(config.data.num_of_labels)}
-    for i in range(len(facts[0])):
+    for i in tqdm(range(len(facts[0])), total=len(facts[0])):
         if config.data.task == 'commonsense':
             question = dataset['test']['question'][facts[0][1][0]] + ' Answer: '
-            ground_truth_list = [dataset['test']['ground_truth'][fact_idx]] * config.data.num_of_labels
-            prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][4][i], question) 
-                            for label_idx in range(config.data.num_of_labels)}
+            ground_truth_list = [dataset['test']['ground_truth'][facts[0][1][0]]] * config.data.num_of_labels
+            prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][4][i], question)
+                           for label_idx in range(config.data.num_of_labels)}
         elif config.data.task == 'password':
             question = 'What is the password of the president\'s laptop? Answer: '
             ground_truth_list = [['R#7tK9fP2w'], ['7Kp$T9#sLX'], ['4eT9Xp#6kS'], ['7hPz9KbY6Q']]
             if args.num_of_irrelevant_evidence == 0:
-                prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][1][i], question) 
-                                for label_idx in range(config.data.num_of_labels)}
+                prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(facts[label_idx][1][i], question)
+                               for label_idx in range(config.data.num_of_labels)}
             else:
-                other_facts = pd.read_csv(os.path.join(args.root_path, config.data.input_path, 'commonsense_evidence/fact_0.txt'), sep = '------', header = None, engine = 'python')
+                other_facts = pd.read_csv(
+                    os.path.join(args.root_path, config.data.input_path, 'commonsense_evidence/fact_0.txt'),
+                    sep='------', header=None, engine='python')
                 irrelevant_facts = other_facts.sample(args.num_of_irrelevant_evidence)
-                final_fact =  facts[label_idx][1][i]
+                final_fact = facts[label_idx][1][i]
                 for irrelevant_fact in irrelevant_facts[4]:
                     final_fact += '\n' + irrelevant_fact
-                    prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(final_fact, question) 
-                                    for label_idx in range(config.data.num_of_labels)}
+                    prompt_dict = {'fact_%s' % label_idx: process_fact_to_prompt(final_fact, question)
+                                   for label_idx in range(config.data.num_of_labels)}
 
         question_tokenized = tokenizer.tokenize(question)
 
-        print('==================================================')
-        print(i)
-        print(prompt_dict)
-        print(question_tokenized)
-        print(len(question_tokenized))
+        # print('==================================================')
+        # print(i)
+        # print(prompt_dict)
+        # print(question_tokenized)
+        # print(len(question_tokenized))
         if args.is_record_last_vi:
             question_tokenized = [question_tokenized[-1]]
         if args.is_record_all_vi:
@@ -123,8 +202,10 @@ for fact_idx in fact_idx_list:
 
         question_length = len(question_tokenized)
 
-        hidden_states_list = [HiddenStates(config.data.num_of_labels, model.config.num_hidden_layers, model.config.hidden_size, question_tokenized, tensor_root_path) 
-                            for step_index in range(question_length)]
+        hidden_states_list = [
+            HiddenStates(config.data.num_of_labels, model.config.num_hidden_layers, model.config.hidden_size,
+                         question_tokenized, tensor_root_path)
+            for step_index in range(question_length)]
 
         for label_idx, (fact_type, prompt) in enumerate(prompt_dict.items()):
             ground_truth = ground_truth_list[label_idx]
@@ -134,13 +215,16 @@ for fact_idx in fact_idx_list:
             layer_outputs_outputs = []
 
             inputs = tokenizer(prompt, return_tensors="pt")
-            outputs = model.generate(inputs.input_ids.cuda(), max_new_tokens = 50, output_hidden_states = True, output_attentions = True, return_dict_in_generate = True)
-            print(label_idx)
-            text = tokenizer.decode(outputs[0][0], skip_special_tokens = True)
+            inputs = {k:v.cuda() for k, v in inputs.items()}
+            with torch.no_grad():
+                outputs = model.generate(**inputs, max_new_tokens=50, output_hidden_states=True,
+                                         output_attentions=True, return_dict_in_generate=True, pad_token_id=0)
+            # print(label_idx)
+            text = tokenizer.decode(outputs[0][0], skip_special_tokens=True)
             model_answer = text.split(' Answer: ')[1]
-            print(model_answer)
-            print(ground_truth)
-            
+            # print(model_answer)
+            # print(ground_truth)
+
             is_right = False
             for ground_truth_answer in ground_truth:
                 if ground_truth_answer in model_answer:
@@ -151,9 +235,12 @@ for fact_idx in fact_idx_list:
             if args.is_probing:
                 for step_index in range(question_length):
                     for layer_idx in range(model.config.num_hidden_layers):
-                        hidden_states_list[step_index].set_mlp_states(torch.Tensor(mlp_outputs[layer_idx][0][-step_index-1]), layer_idx, label_idx)
-                        hidden_states_list[step_index].set_attention_states(torch.Tensor(attention_outputs[layer_idx][0][0][-step_index-1]), layer_idx, label_idx)
-                        hidden_states_list[step_index].set_layer_outputs(torch.Tensor(layer_outputs_outputs[layer_idx][0][0][-step_index-1]), layer_idx, label_idx)
+                        hidden_states_list[step_index].set_mlp_states(
+                            torch.Tensor(mlp_outputs[layer_idx][0][-step_index - 1]), layer_idx, label_idx)
+                        hidden_states_list[step_index].set_attention_states(
+                            torch.Tensor(attention_outputs[layer_idx][0][0][-step_index - 1]), layer_idx, label_idx)
+                        hidden_states_list[step_index].set_layer_outputs(
+                            torch.Tensor(layer_outputs_outputs[layer_idx][0][0][-step_index - 1]), layer_idx, label_idx)
 
         if args.is_probing:
             for step_index in range(question_length):
@@ -171,6 +258,9 @@ for fact_idx in fact_idx_list:
                 f.write(',%s' % acc_dict['fact_%s' % label_idx])
             f.write('\n')
 
+    gc.collect()
+    torch.cuda.empty_cache()
+
     if args.is_probing:
         probing_class = ProbingMultipleSteps(config, args, tensor_root_path, question_tokenized, len(facts[0]))
         probing_class.probing()
@@ -180,3 +270,6 @@ for fact_idx in fact_idx_list:
             probing_class.record_last_vi()
         if args.is_record_all_vi:
             probing_class.record_all_vi(entity_tag_list)
+
+    gc.collect()
+    torch.cuda.empty_cache()

@@ -3,6 +3,7 @@ import numpy as np
 import os
 import torch
 import torch.nn.functional as F
+from tqdm import tqdm
 
 from probing_model import LinearClassifier, MLPClassifier, train
 from sklearn.model_selection import train_test_split
@@ -29,13 +30,16 @@ class ProbingMultipleSteps:
         self.set_plot_config()
     
     def probing(self):
-        for step_index in range(len(self.question_tokenized)):
+        for step_index in tqdm(range(len(self.question_tokenized)), total=len(self.question_tokenized)):
             labels = [_ for _ in range(self.config.data.num_of_labels)] * self.fact_num
 
             for layer_idx in range(self.config.plm.layer_num):
                 for position, acc_list in self.acc_of_each_position.items():
                     states = torch.load(os.path.join(self.tensor_root_path, 'step_%s' % step_index, '%s_layer_%s.pt' % (position, layer_idx)))
-                    X_train, X_test, y_train, y_test = train_test_split(states.cuda(), torch.Tensor(labels).cuda(), test_size = 0.2)
+
+                    # print(states.shape, torch.Tensor(labels).shape)
+
+                    X_train, X_test, y_train, y_test = train_test_split(states, torch.Tensor(labels), test_size = 0.2)
                     y_train = F.one_hot(y_train.long(), num_classes = self.config.data.num_of_labels).float()
                     y_test = y_test.long()
 
@@ -50,7 +54,7 @@ class ProbingMultipleSteps:
                     # model = MLPClassifier(X_train.shape[-1], self.config.data.num_of_labels).cuda()
                     model = train(model, X_train_null, y_train)
                     with torch.no_grad():
-                        y_pred = model(X_test)
+                        y_pred = model(X_test.cuda())
 
                     H_yb = 0
                     for i, ground_truth in enumerate(y_test):
@@ -65,30 +69,16 @@ class ProbingMultipleSteps:
                     # model = MLPClassifier(X_train.shape[-1], self.config.data.num_of_labels).cuda()
                     model = train(model, X_train, y_train)
                     with torch.no_grad():
-                        y_pred = model(X_test)
+                        y_pred = model(X_test.cuda())
 
                     H_yx = 0
                     for i, ground_truth in enumerate(y_test):
                         H_yx += -1 * torch.log2(y_pred[i][ground_truth]).item()
                     H_yx /= len(y_pred)
 
-                    # loss_fun = torch.nn.CrossEntropyLoss()
-                    # H_yx = loss_fun(y_pred, y_test).item()
 
-                    # for i in range(len(y_pred)):
-                    #     prob = y_pred[i][y_test[i]]
-                    #     H_yx += -1 * torch.log2(prob)
-                    # H_yx /= len(y_pred)
-                    # H_yx = H_yx.item()
-                    
                     Vi = H_yb - H_yx
 
-                    # y_pred = lr.predict(X_test)
-                    # test_f1 = f1_score(y_test, y_pred)
-                    print('==============================================')
-                    print('position: %s, position idx: %s, layer idx: %s' % (position, -(step_index+1), layer_idx))
-                    print('Hyb: %s, Hyx: %s, pvi: %s' % (H_yb, H_yx, Vi))
-                    # print('Vi: %s' % Vi)
                     acc_list[step_index].append(Vi)
     
     def record_last_vi(self):
