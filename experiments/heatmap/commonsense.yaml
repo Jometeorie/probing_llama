@@ -1,8 +1,8 @@
 plm:
   model_name: llama
-  # model_path: models/Llama-2-7b-chat-hf # change to 70b
-#   model_path: /home/jtj/.cache/huggingface/hub/models--meta-llama--Llama-2-7b-chat-hf/snapshots/08751db2aca9bf2f7f80d2e516117a53d7450235/
-  model_path: /root/paddlejob/workspace/sunweiwei/rank/models/llama-2-7b-chat
+  model_path: models/Llama-2-7b-chat-hf # change to 70b
+  # model_path: /home/jtj/.cache/huggingface/hub/models--meta-llama--Llama-2-7b-chat-hf/snapshots/08751db2aca9bf2f7f80d2e516117a53d7450235/
+  # model_path: /root/paddlejob/workspace/sunweiwei/rank/models/llama-2-7b-chat
   layer_num: 32
   
 environment:
