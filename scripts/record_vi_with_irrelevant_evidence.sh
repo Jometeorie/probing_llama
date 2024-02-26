@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# conflicting knowledge部分各层Vi热力图
 root_path=/home/jtj/probing_llama
 
 for (( n=0; n<=10; n++ ))
